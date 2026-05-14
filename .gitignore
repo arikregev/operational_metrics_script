@@ -1,0 +1,33 @@
+# Virtualenv
+.venv/
+venv/
+env/
+
+# SQLite cache + temp output
+.cache/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python build / install
+*.egg-info/
+build/
+dist/
+*.egg
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store

@@ -1,0 +1,9 @@
+purl_canonical,note
+pkg:npm/express@4.18.2,popular npm
+pkg:npm/%40angular/core@17.0.0,scoped npm (encoded @)
+pkg:pypi/requests@2.31.0,popular pypi
+pkg:pypi/django@4.2.0,popular pypi with security history
+pkg:maven/org.apache.commons/commons-lang3@3.12.0,maven groupId/artifactId
+pkg:cargo/serde@1.0.193,cargo
+pkg:golang/github.com/gin-gonic/gin@v1.9.1,golang
+pkg:npm/left-pad@1.3.0,low-activity edge case
