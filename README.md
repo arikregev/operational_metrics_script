@@ -110,6 +110,30 @@ python -m enrich input.csv -o out.csv  # via the module
 
 ---
 
+## Supported ecosystems
+
+The script doesn't restrict input by ecosystem — any valid purl flows through.
+Per-source coverage varies, though:
+
+| purl type | deps.dev | ecosyste.ms | GitHub / Scorecard | Snyk |
+|---|:---:|:---:|:---:|:---:|
+| `npm`, `pypi`, `maven`, `nuget`, `cargo`, `golang` | ✓ | ✓ | ✓ (if `relatedProjects` resolves) | ✓ |
+| `composer`, `gem`, `pub`, `hex` | ✓ | ✓ | ✓ (if `relatedProjects` resolves) | ✓ |
+| `rpm` (RHEL, Fedora, CentOS) | — | ✓ | — | ✓ |
+| `deb` (Debian, Ubuntu) | — | ✓ | — | ✓ |
+| `apk` (Alpine Linux) | — | ✓ | — | ✓ |
+| `cocoapods`, `swift`, `conan` | — | partial | — | ✓ |
+
+For OS packages (rpm/deb/apk), Snyk + ecosyste.ms supply vulnerability and
+metadata; deps.dev doesn't track distro packages so `version_published_at`,
+`relatedProjects` (and the github_*/scorecard_* columns) are usually empty.
+The row is still emitted with `_errors=depsdev:error:not_found`.
+
+`pkg:alpine/...` (non-standard) is normalized to `apk` at the Snyk layer so
+both spellings work for vulnerability lookup.
+
+---
+
 ## Output columns (63)
 
 The full ordered list is defined in [`enrich/merge.py`](enrich/merge.py)

@@ -25,6 +25,12 @@ DEFAULT_API_VERSION = "2024-10-15"
 PACKAGE_PATH = "/orgs/{org}/ecosystems/{ecosystem}/{package_name}"
 DEFAULT_TIMEOUT = httpx.Timeout(45.0, connect=10.0)
 
+# Map common non-canonical ecosystem strings to the names Snyk recognizes.
+# "alpine" isn't a purl-spec type — Alpine packages use pkg:apk/...
+_ECOSYSTEM_ALIASES: dict[str, str] = {
+    "alpine": "apk",
+}
+
 
 def _is_retryable(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
@@ -56,6 +62,7 @@ def _split_purl(purl: str) -> tuple[str, str, str | None]:
     if type_sep == -1:
         return "", "", None
     ecosystem = body[:type_sep].lower()
+    ecosystem = _ECOSYSTEM_ALIASES.get(ecosystem, ecosystem)
     rest = body[type_sep + 1 :]
     at = rest.rfind("@")
     if at == -1:
