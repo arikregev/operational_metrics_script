@@ -58,6 +58,8 @@ All credentials come from environment variables (`python-dotenv` auto-loads
 | `GITHUB_TOKEN` | yes | Bearer for GitHub REST + GraphQL. Classic PAT with `public_repo` is enough for public-repo signals; fine-grained PATs work too. |
 | `SNYK_TOKEN` | yes | Snyk personal or service-account token. Used as `Authorization: token <value>` (lowercase `token`, **not** Bearer). |
 | `SNYK_ORG_ID` | yes | Snyk org UUID. Find it under https://app.snyk.io/org/&lt;slug&gt;/manage/settings. Scopes the request to your org's entitlements. |
+| `SNYK_API_BASE` | no | Override the Snyk API base URL — useful for private / custom Snyk deployments. Defaults to `https://api.snyk.io`. |
+| `SNYK_API_VERSION` | no | Snyk REST API date version sent as the `version` query param. Defaults to `2024-10-15`. |
 | `CONTACT_EMAIL` | no | Contact email for the ecosyste.ms polite-tier (`mailto=` query param + UA). Lifts the anonymous limit from 5k/hr to 15k/hr. Defaults to `operational-metrics-script@local`. |
 
 `pyproject.toml` requires **Python 3.11+** (used for `asyncio.TaskGroup`).
@@ -247,7 +249,12 @@ you're hitting limits.
   fall back to ecosyste.ms only and record `status="no_version"` for deps.dev.
 - **Snyk auth header** — literal string `token <PAT>`, lowercase `token`,
   **not** `Bearer`.
-- **Snyk URL-encoding** — `:`, `/`, `@` are all encoded inside the path param.
+- **Snyk purl split** — the new endpoint takes `{ecosystem}/{package_name}` as
+  separate path segments, not a single URL-encoded purl. `package_name` keeps
+  `/` (maven `groupId/artifactId`, golang import paths) but URL-encodes other
+  special chars (scoped npm `@scope/name` → `%40scope/name`). Version from the
+  purl is currently dropped — Snyk's package-level endpoint returns issues
+  across all versions of the package.
 - **GitHub GraphQL aliasing** — 25 repos per query, one rate-limit point,
   query includes `rateLimit { cost remaining resetAt }` for self-throttling.
 

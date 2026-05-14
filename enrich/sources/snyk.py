@@ -1,4 +1,7 @@
-"""Snyk client (REST API ``/rest/orgs/{org}/packages/{purl}/issues``).
+"""Snyk client (REST API ``/orgs/{org}/ecosystems/{ecosystem}/{package_name}``).
+
+The base URL and API version are configurable via ``SNYK_API_BASE`` and
+``SNYK_API_VERSION`` env vars to support custom Snyk deployments.
 
 Aggregates issue listings into per-purl counters: severity counts, max CVSS,
 exploit maturity flag, fix availability flag, license-issue count, CVE list.
@@ -8,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import httpx
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential_jitter
@@ -17,9 +20,9 @@ from enrich.types import SourceRecord
 
 log = logging.getLogger(__name__)
 
-BASE = "https://api.snyk.io"
-API_VERSION = "2024-10-15"
-ISSUES_PATH = "/rest/orgs/{org}/packages/{purl}/issues"
+DEFAULT_BASE = "https://api.snyk.io"
+DEFAULT_API_VERSION = "2024-10-15"
+PACKAGE_PATH = "/orgs/{org}/ecosystems/{ecosystem}/{package_name}"
 DEFAULT_TIMEOUT = httpx.Timeout(45.0, connect=10.0)
 
 
@@ -36,6 +39,28 @@ _retry = dict(
     stop=stop_after_attempt(6),
     reraise=True,
 )
+
+
+def _split_purl(purl: str) -> tuple[str, str, str | None]:
+    """Return ``(ecosystem, package_name, version)`` parsed from *purl*.
+
+    ``package_name`` is URL-decoded so scoped npm names come back as
+    ``@scope/name`` rather than ``%40scope/name``. Returns ``(ecosystem, "", None)``
+    if the purl shape is malformed.
+    """
+    if not purl.startswith("pkg:"):
+        return "", "", None
+    body = purl[4:]
+    body = body.split("?", 1)[0].split("#", 1)[0]
+    type_sep = body.find("/")
+    if type_sep == -1:
+        return "", "", None
+    ecosystem = body[:type_sep].lower()
+    rest = body[type_sep + 1 :]
+    at = rest.rfind("@")
+    if at == -1:
+        return ecosystem, unquote(rest), None
+    return ecosystem, unquote(rest[:at]), rest[at + 1 :]
 
 
 def _max_cvss(issue: dict[str, Any]) -> float | None:
@@ -112,11 +137,19 @@ def _aggregate(issues: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 async def _fetch_all_issues(
-    client: httpx.AsyncClient, org_id: str, purl: str
+    client: httpx.AsyncClient,
+    org_id: str,
+    ecosystem: str,
+    package_name: str,
+    api_version: str,
+    base_url: str,
 ) -> list[dict[str, Any]]:
-    encoded = quote(purl, safe="")
-    path = ISSUES_PATH.format(org=org_id, purl=encoded)
-    params: dict[str, Any] = {"version": API_VERSION, "limit": 100}
+    # Keep '/' inside the package name (maven groupId/artifactId, golang import paths);
+    # encode everything else (scoped npm '@scope/name' -> '%40scope/name').
+    encoded_eco = quote(ecosystem, safe="")
+    encoded_name = quote(package_name, safe="/")
+    path = PACKAGE_PATH.format(org=org_id, ecosystem=encoded_eco, package_name=encoded_name)
+    params: dict[str, Any] = {"version": api_version, "limit": 100}
     issues: list[dict[str, Any]] = []
     next_url: str | None = None
     while True:
@@ -141,9 +174,7 @@ async def _fetch_all_issues(
         nxt = links.get("next")
         if not nxt:
             break
-        # Snyk's "next" can be a relative path or full URL — httpx handles both
-        # when given to .get() as the URL argument.
-        next_url = nxt if nxt.startswith("http") else f"{BASE}{nxt}"
+        next_url = nxt if nxt.startswith("http") else f"{base_url}{nxt}"
     return issues
 
 
@@ -152,13 +183,21 @@ async def lookup_issues(
     org_id: str,
     purls: list[str],
     sem: asyncio.Semaphore,
+    api_version: str = DEFAULT_API_VERSION,
+    base_url: str = DEFAULT_BASE,
 ) -> dict[str, tuple[SourceRecord | None, str]]:
     out: dict[str, tuple[SourceRecord | None, str]] = {}
 
     async def _do(purl: str) -> None:
+        ecosystem, package_name, _version = _split_purl(purl)
+        if not ecosystem or not package_name:
+            out[purl] = (None, "error:invalid_purl")
+            return
         async with sem:
             try:
-                issues = await _fetch_all_issues(client, org_id, purl)
+                issues = await _fetch_all_issues(
+                    client, org_id, ecosystem, package_name, api_version, base_url
+                )
                 agg = _aggregate(issues)
                 out[purl] = ({"_agg": agg, "issue_count": len(issues)}, "ok")
             except Exception as e:  # noqa: BLE001
@@ -169,9 +208,9 @@ async def lookup_issues(
     return out
 
 
-def make_client(token: str) -> httpx.AsyncClient:
+def make_client(token: str, base_url: str = DEFAULT_BASE) -> httpx.AsyncClient:
     return httpx.AsyncClient(
-        base_url=BASE,
+        base_url=base_url,
         timeout=DEFAULT_TIMEOUT,
         headers={
             "Authorization": f"token {token}",  # lowercase 'token', NOT Bearer

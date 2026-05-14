@@ -23,6 +23,8 @@ class Settings:
     snyk_token: str
     snyk_org_id: str
     contact_email: str
+    snyk_api_base: str = "https://api.snyk.io"
+    snyk_api_version: str = "2024-10-15"
     concurrency: float = 1.0
 
 
@@ -76,7 +78,9 @@ async def _run_fetch_phase(
         eco_adv = await stack.enter_async_context(ecosystems.make_adv_client(settings.contact_email))
         gh_client = await stack.enter_async_context(github.make_client(settings.github_token))
         sc_client = await stack.enter_async_context(scorecard.make_client())
-        snyk_client = await stack.enter_async_context(snyk.make_client(settings.snyk_token))
+        snyk_client = await stack.enter_async_context(
+            snyk.make_client(settings.snyk_token, settings.snyk_api_base)
+        )
 
         async def _do_depsdev() -> dict[str, tuple[dict | None, str]]:
             missing = await cache.missing_for_source(pending, "depsdev")
@@ -116,7 +120,12 @@ async def _run_fetch_phase(
             if not missing:
                 return
             results = await snyk.lookup_issues(
-                snyk_client, settings.snyk_org_id, missing, sems["snyk"]
+                snyk_client,
+                settings.snyk_org_id,
+                missing,
+                sems["snyk"],
+                api_version=settings.snyk_api_version,
+                base_url=settings.snyk_api_base,
             )
             await cache.put_many(
                 [(p, "snyk", rec, status) for p, (rec, status) in results.items()]

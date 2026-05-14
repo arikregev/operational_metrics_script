@@ -96,6 +96,8 @@ def _build_settings(concurrency: float) -> Settings:
         contact_email=(
             os.environ.get("CONTACT_EMAIL", "").strip() or "operational-metrics-script@local"
         ),
+        snyk_api_base=(os.environ.get("SNYK_API_BASE", "").strip() or "https://api.snyk.io"),
+        snyk_api_version=(os.environ.get("SNYK_API_VERSION", "").strip() or "2024-10-15"),
         concurrency=max(0.1, concurrency),
     )
 
