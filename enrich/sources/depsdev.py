@@ -251,4 +251,5 @@ def make_client() -> httpx.AsyncClient:
         timeout=DEFAULT_TIMEOUT,
         headers={"Accept": "application/json", "User-Agent": "operational-metrics-script"},
         http2=True,
+        trust_env=True,  # honor HTTPS_PROXY / HTTP_PROXY / NO_PROXY
     )

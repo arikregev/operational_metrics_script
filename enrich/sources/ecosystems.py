@@ -293,6 +293,7 @@ def make_pkg_client(mailto: str) -> httpx.AsyncClient:
         timeout=DEFAULT_TIMEOUT,
         headers={"Accept": "application/json", "User-Agent": ua},
         http2=True,
+        trust_env=True,  # honor HTTPS_PROXY / HTTP_PROXY / NO_PROXY
     )
 
 
@@ -303,4 +304,5 @@ def make_adv_client(mailto: str) -> httpx.AsyncClient:
         timeout=DEFAULT_TIMEOUT,
         headers={"Accept": "application/json", "User-Agent": ua},
         http2=True,
+        trust_env=True,  # honor HTTPS_PROXY / HTTP_PROXY / NO_PROXY
     )

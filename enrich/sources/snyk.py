@@ -218,4 +218,5 @@ def make_client(token: str, base_url: str = DEFAULT_BASE) -> httpx.AsyncClient:
             "User-Agent": "operational-metrics-script",
         },
         http2=True,
+        trust_env=True,  # honor HTTPS_PROXY / HTTP_PROXY / NO_PROXY
     )

@@ -64,6 +64,20 @@ All credentials come from environment variables (`python-dotenv` auto-loads
 
 `pyproject.toml` requires **Python 3.11+** (used for `asyncio.TaskGroup`).
 
+### Proxies
+
+All outbound HTTP clients honor standard proxy environment variables:
+
+```bash
+export HTTPS_PROXY=http://user:pass@proxy.example.com:8080   # primary — all APIs are HTTPS
+export HTTP_PROXY=http://proxy.example.com:8080              # fallback
+export NO_PROXY=api.snyk.io,internal.corp                    # CSV bypass list
+```
+
+`HTTPS_PROXY` / `https_proxy` / `HTTP_PROXY` / `http_proxy` / `ALL_PROXY` /
+`NO_PROXY` are all recognized (httpx picks them up via `trust_env=True`).
+The script logs which proxy is in use at startup with credentials redacted.
+
 ---
 
 ## CLI

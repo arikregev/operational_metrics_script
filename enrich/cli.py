@@ -14,6 +14,10 @@ from enrich.cache import Cache
 from enrich.io import read_purls
 from enrich.pipeline import Settings, run, write_csv
 
+log = logging.getLogger(__name__)
+
+_PROXY_VARS = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy")
+
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
@@ -81,6 +85,32 @@ def _setup_logging(verbose: int) -> None:
         logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
+def _redact_proxy(url: str) -> str:
+    """Strip user:pass from a proxy URL for logging."""
+    if "@" not in url:
+        return url
+    scheme, _, rest = url.partition("://")
+    creds, _, host = rest.partition("@")
+    if ":" in creds:
+        user = creds.split(":", 1)[0]
+        return f"{scheme}://{user}:***@{host}"
+    return f"{scheme}://***@{host}"
+
+
+def _log_proxy() -> None:
+    """Log any HTTP(S) proxy env vars in effect. httpx picks these up automatically."""
+    seen: list[str] = []
+    for var in _PROXY_VARS:
+        val = os.environ.get(var)
+        if val:
+            seen.append(f"{var}={_redact_proxy(val)}")
+    no_proxy = os.environ.get("NO_PROXY") or os.environ.get("no_proxy")
+    if seen:
+        print(f"Using proxy: {', '.join(seen)}" + (f" (NO_PROXY={no_proxy})" if no_proxy else ""))
+    elif no_proxy:
+        print(f"NO_PROXY={no_proxy} (no proxy URL set)")
+
+
 def _build_settings(concurrency: float) -> Settings:
     missing = [k for k in ("GITHUB_TOKEN", "SNYK_TOKEN", "SNYK_ORG_ID") if not os.environ.get(k)]
     if missing:
@@ -104,6 +134,7 @@ def _build_settings(concurrency: float) -> Settings:
 
 async def _amain(args: argparse.Namespace) -> int:
     settings = _build_settings(args.concurrency)
+    _log_proxy()
     purls = read_purls(args.input)
     if args.limit:
         purls = purls[: args.limit]
