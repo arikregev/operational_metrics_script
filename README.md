@@ -314,4 +314,4 @@ captured in [`PLAN.md`](PLAN.md), written before implementation.
 
 ## License
 
-Unlicensed. Add a `LICENSE` file before public reuse.
+[MIT](LICENSE) © 2026 Arik Regev

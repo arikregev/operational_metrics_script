@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "enrich"
 version = "0.1.0"
 description = "Enrich purl_canonical CSVs with operational-metrics data from deps.dev, ecosyste.ms, GitHub, and Snyk."
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 dependencies = [
     "httpx[http2]>=0.27",
